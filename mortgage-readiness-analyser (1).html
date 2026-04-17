@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mortgage Readiness Analyser</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── TOKENS ─────────────────────────────────────────────── */
+:root,[data-theme="light"]{
+  --bg:#f7f6f2;--surface:#f9f8f5;--surface-2:#fbfbf9;--surface-off:#edeae5;
+  --border:#d4d1ca;--divider:#dcd9d5;
+  --text:#28251d;--muted:#7a7974;--faint:#bab9b4;--inv:#f9f8f4;
+  --primary:#01696f;--primary-h:#0c4e54;--primary-hl:#cedcd8;
+  --success:#437a22;--success-hl:#d4dfcc;
+  --warn:#964219;--warn-hl:#ddcfc6;
+  --error:#a12c7b;--error-hl:#e0ced7;
+  --gold:#d19900;--gold-hl:#e9e0c6;
+  --shadow-sm:0 1px 2px oklch(0.2 0.01 80/0.06);
+  --shadow-md:0 4px 12px oklch(0.2 0.01 80/0.08);
+  --shadow-lg:0 12px 32px oklch(0.2 0.01 80/0.12);
+  --r-sm:0.375rem;--r-md:0.5rem;--r-lg:0.75rem;--r-xl:1rem;--r-full:9999px;
+  --transition:180ms cubic-bezier(0.16,1,0.3,1);
+  --font:'Satoshi',system-ui,sans-serif;
+  --sidebar-w:260px;
+}
+[data-theme="dark"]{
+  --bg:#171614;--surface:#1c1b19;--surface-2:#201f1d;--surface-off:#22211f;
+  --border:#393836;--divider:#262523;
+  --text:#cdccca;--muted:#797876;--faint:#5a5957;--inv:#2b2a28;
+  --primary:#4f98a3;--primary-h:#227f8b;--primary-hl:#313b3b;
+  --success:#6daa45;--success-hl:#3a4435;
+  --warn:#bb653b;--warn-hl:#564942;
+  --error:#d163a7;--error-hl:#4c3d46;
+  --gold:#e8af34;--gold-hl:#4d4332;
+  --shadow-sm:0 1px 2px oklch(0 0 0/0.2);
+  --shadow-md:0 4px 12px oklch(0 0 0/0.3);
+  --shadow-lg:0 12px 32px oklch(0 0 0/0.4);
+}
+
+/* ── RESET ──────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{min-height:100dvh;font-family:var(--font);font-size:14px;color:var(--text);background:var(--bg);display:flex;flex-direction:column}
+img,svg{display:block}
+button{cursor:pointer;background:none;border:none;font:inherit;color:inherit}
+input{font:inherit;color:inherit}
+table{border-collapse:collapse;width:100%}
+a,button,[role="button"],input{transition:color var(--transition),background var(--transition),border-color var(--transition),box-shadow var(--transition)}
+
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.app{display:flex;flex-direction:column;min-height:100dvh}
+
+/* topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:56px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;gap:1rem}
+.topbar-left{display:flex;align-items:center;gap:0.75rem}
+.logo{display:flex;align-items:center;gap:0.5rem;font-weight:700;font-size:15px;letter-spacing:-0.01em}
+.logo svg{color:var(--primary)}
+.topbar-right{display:flex;align-items:center;gap:0.5rem}
+.theme-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r-md);color:var(--muted)}
+.theme-btn:hover{background:var(--surface-off);color:var(--text)}
+.export-btn{display:flex;align-items:center;gap:0.4rem;padding:0 0.875rem;height:34px;border-radius:var(--r-md);background:var(--primary);color:#fff;font-size:13px;font-weight:600}
+.export-btn:hover{background:var(--primary-h)}
+
+/* body */
+.body{display:flex;flex:1}
+
+/* sidebar */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1px solid var(--border);padding:1.25rem 0;display:flex;flex-direction:column;gap:0.25rem;position:sticky;top:56px;height:calc(100dvh - 56px);overflow-y:auto;flex-shrink:0}
+.sidebar-section-label{font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--faint);padding:0.75rem 1.25rem 0.25rem}
+.nav-item{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 1.25rem;font-size:13.5px;font-weight:500;color:var(--muted);border-radius:0;cursor:pointer;border-left:2px solid transparent;transition:all var(--transition)}
+.nav-item:hover{color:var(--text);background:var(--surface-off)}
+.nav-item.active{color:var(--primary);background:var(--primary-hl);border-left-color:var(--primary)}
+.nav-item svg{flex-shrink:0;opacity:0.7}
+.nav-item.active svg{opacity:1}
+
+/* main */
+.main{flex:1;padding:1.75rem 2rem;min-width:0;overflow-x:hidden}
+.section{display:none}
+.section.active{display:block}
+
+/* ── TYPOGRAPHY ─────────────────────────────────────────── */
+.page-title{font-size:clamp(1.25rem,1rem+1vw,1.5rem);font-weight:700;letter-spacing:-0.02em;color:var(--text);margin-bottom:0.25rem}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:1.5rem}
+.section-label{font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--faint);margin-bottom:0.75rem}
+h3{font-size:14px;font-weight:600;color:var(--text)}
+
+/* ── CARDS ──────────────────────────────────────────────── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:1.25rem;box-shadow:var(--shadow-sm)}
+.card-sm{padding:1rem}
+
+/* ── KPI CARDS ──────────────────────────────────────────── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:1.125rem 1.25rem;box-shadow:var(--shadow-sm)}
+.kpi-label{font-size:11.5px;font-weight:500;color:var(--muted);margin-bottom:0.375rem;letter-spacing:0.01em}
+.kpi-value{font-size:clamp(1.2rem,1rem+0.8vw,1.6rem);font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums lining-nums;line-height:1.1}
+.kpi-sub{font-size:11.5px;color:var(--muted);margin-top:0.25rem}
+.kpi-green .kpi-value{color:var(--success)}
+.kpi-teal .kpi-value{color:var(--primary)}
+.kpi-gold .kpi-value{color:var(--gold)}
+.kpi-warn .kpi-value{color:var(--warn)}
+
+/* badge */
+.badge{display:inline-flex;align-items:center;gap:0.3rem;padding:0.2rem 0.6rem;border-radius:var(--r-full);font-size:11.5px;font-weight:600;letter-spacing:0.01em}
+.badge-green{background:var(--success-hl);color:var(--success)}
+.badge-warn{background:var(--warn-hl);color:var(--warn)}
+.badge-error{background:var(--error-hl);color:var(--error)}
+.badge-teal{background:var(--primary-hl);color:var(--primary)}
+.badge-gold{background:var(--gold-hl);color:var(--gold)}
+
+/* ── INPUTS ─────────────────────────────────────────────── */
+.input-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;margin-bottom:1.5rem}
+.input-group{display:flex;flex-direction:column;gap:0.375rem}
+.input-label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0.01em}
+.input-wrap{position:relative;display:flex;align-items:center}
+.input-prefix{position:absolute;left:0.7rem;font-size:13px;color:var(--muted);pointer-events:none;font-weight:500}
+.input-suffix{position:absolute;right:0.7rem;font-size:13px;color:var(--muted);pointer-events:none;font-weight:500}
+.inp{width:100%;height:38px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);font-size:13.5px;font-weight:500;color:var(--text);outline:none;padding:0 0.75rem}
+.inp.has-prefix{padding-left:1.6rem}
+.inp.has-suffix{padding-right:1.6rem}
+.inp:focus{border-color:var(--primary);box-shadow:0 0 0 3px oklch(from var(--primary) l c h/0.12)}
+.inp::-webkit-inner-spin-button,.inp::-webkit-outer-spin-button{-webkit-appearance:none}
+.input-hint{font-size:11px;color:var(--faint)}
+.input-err{font-size:11px;color:var(--error);display:none}
+
+/* ── GRID HELPERS ───────────────────────────────────────── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem}
+.flex-row{display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+
+/* ── DIVIDER ────────────────────────────────────────────── */
+.divider{border:none;border-top:1px solid var(--divider);margin:1.25rem 0}
+
+/* ── RESULT ROW ─────────────────────────────────────────── */
+.result-row{display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--divider)}
+.result-row:last-child{border-bottom:none}
+.result-key{font-size:13px;color:var(--muted)}
+.result-val{font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text)}
+.result-val.accent{color:var(--primary)}
+.result-val.big{font-size:16px;color:var(--text)}
+
+/* ── TABLE ──────────────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border-radius:var(--r-lg);border:1px solid var(--border)}
+.tbl{font-size:12.5px;font-variant-numeric:tabular-nums lining-nums}
+.tbl thead th{background:var(--surface-off);font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--muted);padding:0.6rem 0.875rem;text-align:right;white-space:nowrap}
+.tbl thead th:first-child{text-align:center}
+.tbl tbody tr{border-top:1px solid var(--divider)}
+.tbl tbody tr:hover{background:var(--surface-off)}
+.tbl tbody tr.year-end{background:color-mix(in oklch,var(--primary) 6%,var(--surface))}
+.tbl tbody tr.year-end td{font-weight:600}
+.tbl td{padding:0.5rem 0.875rem;text-align:right;color:var(--muted)}
+.tbl td:first-child{text-align:center;color:var(--faint);font-size:12px}
+.tbl td.principal-col{color:var(--success)}
+.tbl td.interest-col{color:var(--warn)}
+.tbl td.balance-col{color:var(--text);font-weight:500}
+
+/* ── CHART CONTAINER ─────────────────────────────────────── */
+.chart-wrap{position:relative;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:1.25rem;box-shadow:var(--shadow-sm)}
+.chart-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:1rem}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
+
+/* ── PROGRESS BAR ────────────────────────────────────────── */
+.prog-bar-wrap{margin-top:0.5rem}
+.prog-bar-bg{height:6px;background:var(--surface-off);border-radius:var(--r-full);overflow:hidden}
+.prog-bar-fill{height:100%;border-radius:var(--r-full);transition:width 0.6s cubic-bezier(0.16,1,0.3,1)}
+
+/* ── STATUS CARD ─────────────────────────────────────────── */
+.status-card{border-radius:var(--r-xl);padding:1rem 1.25rem;border:1px solid}
+.status-card.green{background:var(--success-hl);border-color:var(--success);color:var(--success)}
+.status-card.warn{background:var(--warn-hl);border-color:var(--warn);color:var(--warn)}
+.status-card.error{background:var(--error-hl);border-color:var(--error);color:var(--error)}
+.status-title{font-size:15px;font-weight:700;margin-bottom:0.25rem}
+.status-body{font-size:13px;opacity:0.85}
+
+/* ── SCENARIO CARDS ──────────────────────────────────────── */
+.scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem}
+.scenario-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:1.25rem;box-shadow:var(--shadow-sm);position:relative}
+.scenario-card.highlight{border-color:var(--primary);background:color-mix(in oklch,var(--primary) 5%,var(--surface))}
+.scenario-badge{position:absolute;top:0.75rem;right:0.75rem}
+.scenario-tenure{font-size:22px;font-weight:700;color:var(--primary);margin-bottom:0.125rem}
+.scenario-emi{font-size:13px;color:var(--muted);margin-bottom:1rem}
+.scenario-emi span{font-size:18px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+
+/* ── REFI ────────────────────────────────────────────────── */
+.refi-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.compare-table .row{display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--divider);font-size:13px}
+.compare-table .row:last-child{border-bottom:none}
+.compare-table .row .label{color:var(--muted)}
+.compare-table .row .old{color:var(--text);font-variant-numeric:tabular-nums;font-weight:500}
+.compare-table .row .new{color:var(--primary);font-variant-numeric:tabular-nums;font-weight:600}
+
+/* ── PAGINATION ──────────────────────────────────────────── */
+.pagination{display:flex;align-items:center;gap:0.5rem;margin-top:1rem;justify-content:flex-end;flex-wrap:wrap}
+.page-btn{padding:0.3rem 0.7rem;border-radius:var(--r-md);font-size:12.5px;font-weight:500;color:var(--muted);border:1px solid var(--border)}
+.page-btn:hover{background:var(--surface-off);color:var(--text)}
+.page-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.page-info{font-size:12px;color:var(--faint)}
+
+/* ── TOOLTIP ─────────────────────────────────────────────── */
+.tooltip-wrap{position:relative;display:inline-flex}
+.tooltip-wrap:hover .tooltip{opacity:1;pointer-events:auto;transform:translateY(0)}
+.tooltip{position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) translateY(4px);background:var(--text);color:var(--inv);font-size:11px;padding:0.3rem 0.6rem;border-radius:var(--r-sm);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity var(--transition),transform var(--transition);z-index:50}
+
+/* ── MOBILE ──────────────────────────────────────────────── */
+@media(max-width:768px){
+  :root{--sidebar-w:0px}
+  .sidebar{display:none}
+  .main{padding:1rem}
+  .chart-grid{grid-template-columns:1fr}
+  .scenario-grid{grid-template-columns:1fr}
+  .refi-grid{grid-template-columns:1fr}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .kpi-grid{grid-template-columns:1fr}
+}
+
+/* ── ANIMATE NUMBER ─────────────────────────────────────── */
+@keyframes pulse-in{0%{opacity:0.4;transform:scale(0.97)}100%{opacity:1;transform:scale(1)}}
+.num-update{animation:pulse-in 0.3s ease forwards}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-left">
+    <!-- SVG Logo -->
+    <svg class="logo" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="Mortgage Analyser Logo">
+      <rect width="28" height="28" rx="7" fill="var(--primary)"/>
+      <path d="M14 6L5 13h3v9h5v-5h2v5h5v-9h3L14 6z" fill="white"/>
+      <circle cx="14" cy="20" r="2" fill="var(--primary)"/>
+    </svg>
+    <span class="logo" style="font-size:15px;font-weight:700">Mortgage Readiness Analyser</span>
+  </div>
+  <div class="topbar-right">
+    <button class="theme-btn" data-theme-toggle aria-label="Toggle theme">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button class="export-btn" onclick="exportCSV()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export CSV
+    </button>
+  </div>
+</header>
+
+<div class="body">
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-section-label">Analysis</div>
+  <div class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </div>
+  <div class="nav-item" data-tab="calculator" onclick="switchTab('calculator')">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/></svg>
+    Loan Calculator
+  </div>
+  <div class="nav-item" data-tab="amortization" onclick="switchTab('amortization')">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Amortization
+  </div>
+  <div class="nav-item" data-tab="scenarios" onclick="switchTab('scenarios')">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+    Scenario Analysis
+  </div>
+  <div class="nav-item" data-tab="refinance" onclick="switchTab('refinance')">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></svg>
+    Refinance Analyser
+  </div>
+  <hr class="divider" style="margin:0.5rem 1.25rem">
+  <div class="sidebar-section-label">About</div>
+  <div style="padding:0 1.25rem;font-size:12px;color:var(--faint);line-height:1.6">
+    Built on Excel model by<br><strong style="color:var(--muted)">Rishi Patil</strong><br>TISS Finance, 2026
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+<!-- ══════════════════════════════════════════════
+     DASHBOARD
+══════════════════════════════════════════════ -->
+<section id="section-dashboard" class="section active">
+  <div class="page-title">Mortgage Readiness Dashboard</div>
+  <div class="page-sub">Enter borrower details below — all results update live.</div>
+
+  <!-- Inputs -->
+  <div class="input-grid">
+    <div class="input-group">
+      <label class="input-label">Monthly Gross Income</label>
+      <div class="input-wrap">
+        <span class="input-prefix">$</span>
+        <input class="inp has-prefix" type="number" id="d_income" value="8000" oninput="calcAll()">
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Monthly Existing Debts</label>
+      <div class="input-wrap">
+        <span class="input-prefix">$</span>
+        <input class="inp has-prefix" type="number" id="d_debts" value="500" oninput="calcAll()">
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Property Value</label>
+      <div class="input-wrap">
+        <span class="input-prefix">$</span>
+        <input class="inp has-prefix" type="number" id="d_propval" value="400000" oninput="calcAll()">
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Down Payment</label>
+      <div class="input-wrap">
+        <span class="input-prefix">$</span>
+        <input class="inp has-prefix" type="number" id="d_down" value="80000" oninput="calcAll()">
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Annual Interest Rate</label>
+      <div class="input-wrap">
+        <input class="inp has-suffix" type="number" id="d_rate" value="6.5" step="0.1" oninput="calcAll()">
+        <span class="input-suffix">%</span>
+      </div>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Loan Tenure</label>
+      <div class="input-wrap">
+        <input class="inp has-suffix" type="number" id="d_tenure" value="30" oninput="calcAll()">
+        <span class="input-suffix">yrs</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card kpi-teal">
+      <div class="kpi-label">Monthly EMI</div>
+      <div class="kpi-value" id="kpi_emi">$2,022</div>
+      <div class="kpi-sub">Principal + Interest</div>
+    </div>
+    <div class="kpi-card kpi-gold">
+      <div class="kpi-label">Total Interest</div>
+      <div class="kpi-value" id="kpi_interest">$408,142</div>
+      <div class="kpi-sub" id="kpi_interest_pct">56.1% of total payment</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-label">Total Payment</div>
+      <div class="kpi-value" id="kpi_total">$728,142</div>
+      <div class="kpi-sub" id="kpi_loan_amt">Loan: $320,000</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">LTV Ratio</div>
+      <div class="kpi-value" id="kpi_ltv">80.0%</div>
+      <div class="prog-bar-wrap">
+        <div class="prog-bar-bg"><div class="prog-bar-fill" id="kpi_ltv_bar" style="width:80%;background:var(--warn)"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Affordability + DTI -->
+  <div class="grid-2" style="margin-bottom:1.5rem">
+    <div class="card card-sm">
+      <div class="section-label">Affordability Status</div>
+      <div id="afford_card" class="status-card green">
+        <div class="status-title" id="afford_title">✅ Eligible</div>
+        <div class="status-body" id="afford_body">Your debt-to-income ratio is within acceptable limits.</div>
+      </div>
+      <div style="margin-top:1rem">
+        <div class="result-row">
+          <span class="result-key">EMI + Existing Debts</span>
+          <span class="result-val accent" id="res_total_debt">$2,522.62</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key">Debt-to-Income (DTI)</span>
+          <span class="result-val" id="res_dti">31.5%</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key">Recommended Max DTI</span>
+          <span class="result-val">≤ 36%</span>
+        </div>
+      </div>
+      <div style="margin-top:0.75rem;font-size:11.5px;color:var(--faint)">Generally, your EMI should not exceed 30% of monthly income.</div>
+    </div>
+    <div class="card card-sm">
+      <div class="section-label">Loan Summary</div>
+      <div class="result-row">
+        <span class="result-key">Loan Amount</span>
+        <span class="result-val big" id="res_loan">$320,000</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Monthly Interest Rate</span>
+        <span class="result-val" id="res_monthly_rate">0.542%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Total Months</span>
+        <span class="result-val" id="res_months">360</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">LTV Ratio</span>
+        <span class="result-val" id="res_ltv2">80.0%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Down Payment %</span>
+        <span class="result-val" id="res_dp_pct">20.0%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Interest as % of Total Payment</span>
+        <span class="result-val" id="res_int_pct">56.1%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="chart-grid">
+    <div class="chart-wrap">
+      <div class="chart-title">Payment Breakdown</div>
+      <canvas id="chart_donut" height="220"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Outstanding Balance Over Time (Yearly)</div>
+      <canvas id="chart_balance" height="220"></canvas>
+    </div>
+  </div>
+
+
+  <!-- ══ LOAN PROGRESS TRACKER ══ -->
+  <hr class="divider">
+  <div class="page-title" style="font-size:1rem;margin-bottom:0.25rem">📍 Where Do You Stand?</div>
+  <div class="page-sub" style="margin-bottom:1.25rem">Enter your <strong>actual outstanding balance</strong> from your bank statement. No assumptions — just your real number.</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start;margin-bottom:1.5rem">
+    <!-- Input card -->
+    <div class="card card-sm">
+      <div class="section-label">Your Current Loan Position</div>
+
+      <div class="input-group" style="margin-bottom:1rem">
+        <label class="input-label">Outstanding Balance (from bank statement)</label>
+        <div class="input-wrap"><span class="input-prefix">$</span>
+          <input class="inp has-prefix" type="number" id="lpt_actual_balance" value="299556" oninput="calcLoanProgress()">
+        </div>
+        <div class="input-hint">Open your bank app → check your loan account → copy the exact balance.</div>
+      </div>
+
+      <div class="input-group" style="margin-bottom:1.25rem">
+        <label class="input-label">Remaining Tenure on Current Loan</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+          <div class="input-wrap">
+            <input class="inp has-suffix" type="number" id="lpt_rem_years" value="25" min="0" oninput="calcLoanProgress()">
+            <span class="input-suffix">yrs</span>
+          </div>
+          <div class="input-wrap">
+            <input class="inp has-suffix" type="number" id="lpt_rem_months" value="0" min="0" max="11" oninput="calcLoanProgress()">
+            <span class="input-suffix">mo</span>
+          </div>
+        </div>
+        <div class="input-hint">How many years and months are left on your loan.</div>
+      </div>
+
+      <!-- Progress bar -->
+      <div style="margin-top:0.25rem">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:0.4rem">
+          <span>Loan Repaid</span>
+          <span id="lpt_pct_label">—</span>
+        </div>
+        <div class="prog-bar-bg" style="height:10px;border-radius:var(--r-full)">
+          <div class="prog-bar-fill" id="lpt_prog_fill" style="width:0%;background:var(--primary)"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:0.35rem">
+          <span id="lpt_equity_label">—</span>
+          <span id="lpt_balance_label">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+      <div class="kpi-card kpi-teal" style="padding:0.875rem 1rem">
+        <div class="kpi-label">Outstanding Balance</div>
+        <div class="kpi-value" style="font-size:1.05rem" id="lpt_balance_display">—</div>
+        <div class="kpi-sub">Still owed to bank</div>
+      </div>
+      <div class="kpi-card kpi-green" style="padding:0.875rem 1rem">
+        <div class="kpi-label">Equity Built</div>
+        <div class="kpi-value" style="font-size:1.05rem" id="lpt_equity">—</div>
+        <div class="kpi-sub">Principal repaid so far</div>
+      </div>
+      <div class="kpi-card" style="padding:0.875rem 1rem">
+        <div class="kpi-label" style="color:var(--warn)">Remaining Interest</div>
+        <div class="kpi-value" style="font-size:1.05rem;color:var(--warn)" id="lpt_int_remain">—</div>
+        <div class="kpi-sub">If you don't refinance</div>
+      </div>
+      <div class="kpi-card" style="padding:0.875rem 1rem">
+        <div class="kpi-label">Remaining Months</div>
+        <div class="kpi-value" style="font-size:1.05rem" id="lpt_rem_months_display">—</div>
+        <div class="kpi-sub">On current loan</div>
+      </div>
+      <div class="card card-sm" style="grid-column:span 2;padding:0.75rem 1rem;background:var(--primary-hl);border-color:var(--primary)">
+        <div style="font-size:12px;font-weight:600;color:var(--primary);margin-bottom:0.25rem">📌 Auto-filled below</div>
+        <div style="font-size:12px;color:var(--muted)" id="lpt_autofill_note">Your outstanding balance has been auto-filled into the Refinance Quick-Check below.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ REFINANCE QUICK-CHECK ══ -->
+  <hr class="divider">
+  <div class="page-title" style="font-size:1rem;margin-bottom:0.25rem">⚡ Refinance Quick-Check</div>
+  <div class="page-sub" style="margin-bottom:1.25rem">Should you refinance? Update your new loan details below — verdict updates instantly.</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start">
+    <!-- Inputs -->
+    <div class="card card-sm">
+      <div class="section-label">Refinance Inputs</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem">
+        <div class="input-group">
+          <label class="input-label">Outstanding Balance ($)</label>
+          <div class="input-wrap"><span class="input-prefix">$</span>
+            <input class="inp has-prefix" type="number" id="drf_balance" value="299556" oninput="calcDashRefi()">
+          </div>
+          <div class="input-hint">e.g. balance at month 60</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">New Interest Rate (%)</label>
+          <div class="input-wrap">
+            <input class="inp has-suffix" type="number" id="drf_new_rate" value="5.5" step="0.1" oninput="calcDashRefi()">
+            <span class="input-suffix">%</span>
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">New Tenure (Years)</label>
+          <div class="input-wrap">
+            <input class="inp has-suffix" type="number" id="drf_new_tenure" value="25" oninput="calcDashRefi()">
+            <span class="input-suffix">yrs</span>
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Closing Cost ($)</label>
+          <div class="input-wrap"><span class="input-prefix">$</span>
+            <input class="inp has-prefix" type="number" id="drf_cost" value="5000" oninput="calcDashRefi()">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Months Already Paid</label>
+          <div class="input-wrap">
+            <input class="inp" type="number" id="drf_months_paid" value="60" oninput="calcDashRefi()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div style="display:flex;flex-direction:column;gap:1rem">
+      <!-- Verdict -->
+      <div id="drf_verdict" class="status-card green">
+        <div class="status-title" id="drf_verdict_title">✅ Refinancing is Worth It</div>
+        <div class="status-body" id="drf_verdict_body">Loading…</div>
+      </div>
+
+      <!-- 4 mini KPIs -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+        <div class="kpi-card kpi-teal" style="padding:0.875rem 1rem">
+          <div class="kpi-label">Current EMI</div>
+          <div class="kpi-value" style="font-size:1.1rem" id="drf_old_emi">—</div>
+        </div>
+        <div class="kpi-card kpi-green" style="padding:0.875rem 1rem">
+          <div class="kpi-label">New EMI</div>
+          <div class="kpi-value" style="font-size:1.1rem" id="drf_new_emi">—</div>
+        </div>
+        <div class="kpi-card kpi-gold" style="padding:0.875rem 1rem">
+          <div class="kpi-label">Monthly Savings</div>
+          <div class="kpi-value" style="font-size:1.1rem" id="drf_savings">—</div>
+        </div>
+        <div class="kpi-card" style="padding:0.875rem 1rem">
+          <div class="kpi-label">Break-Even</div>
+          <div class="kpi-value" style="font-size:1.1rem" id="drf_breakeven">—</div>
+          <div class="kpi-sub">months</div>
+        </div>
+      </div>
+
+      <div style="padding:0.75rem 1rem;background:var(--surface-off);border-radius:var(--r-md);font-size:12px;color:var(--muted)">
+        💡 For full comparison chart and detailed breakdown, go to the <strong style="color:var(--primary);cursor:pointer" onclick="switchTab('refinance')">Refinance Analyser tab →</strong>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ══════════════════════════════════════════════
+     LOAN CALCULATOR
+══════════════════════════════════════════════ -->
+<section id="section-calculator" class="section">
+  <div class="page-title">Loan Calculator</div>
+  <div class="page-sub">Detailed breakdown of your mortgage cost structure.</div>
+
+  <div class="grid-2" style="margin-bottom:1.5rem">
+    <div class="card">
+      <div class="section-label">Loan Parameters</div>
+      <div class="result-row">
+        <span class="result-key">Property Value</span>
+        <span class="result-val big" id="lc_propval">$400,000</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Down Payment</span>
+        <span class="result-val" id="lc_down">$80,000</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Loan Amount</span>
+        <span class="result-val big accent" id="lc_loan">$320,000</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Annual Interest Rate</span>
+        <span class="result-val" id="lc_rate">6.50%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Monthly Interest Rate</span>
+        <span class="result-val" id="lc_mrate">0.542%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Loan Tenure</span>
+        <span class="result-val" id="lc_tenure">30 years</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Total Months</span>
+        <span class="result-val" id="lc_months">360</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-label">Cost Results</div>
+      <div class="result-row">
+        <span class="result-key">Monthly Payment (EMI)</span>
+        <span class="result-val big accent" id="lc_emi">$2,022.62</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Total Amount Paid</span>
+        <span class="result-val big" id="lc_total">$728,142.36</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Total Interest Paid</span>
+        <span class="result-val" style="color:var(--warn)" id="lc_interest">$408,142.36</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Interest as % of Total Payment</span>
+        <span class="result-val" id="lc_int_pct">56.05%</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Principal as % of Total Payment</span>
+        <span class="result-val" id="lc_prin_pct">43.95%</span>
+      </div>
+      <hr class="divider">
+      <div class="result-row">
+        <span class="result-key">Year 1: Interest Paid</span>
+        <span class="result-val" id="lc_yr1_int">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Year 1: Principal Paid</span>
+        <span class="result-val" id="lc_yr1_prin">—</span>
+      </div>
+      <div class="result-row">
+        <span class="result-key">Balance after Year 1</span>
+        <span class="result-val" id="lc_yr1_bal">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">Cumulative Principal vs Interest Paid Over Time</div>
+    <canvas id="chart_cumulative" height="120"></canvas>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     AMORTIZATION
+══════════════════════════════════════════════ -->
+<section id="section-amortization" class="section">
+  <div class="page-title">Amortization Schedule</div>
+  <div class="page-sub">Month-by-month breakdown of every payment. Year-end rows are highlighted.</div>
+
+  <div class="kpi-grid" style="margin-bottom:1.25rem">
+    <div class="kpi-card kpi-teal"><div class="kpi-label">Monthly EMI</div><div class="kpi-value" id="am_emi">$2,022.62</div></div>
+    <div class="kpi-card kpi-green"><div class="kpi-label">Total Principal</div><div class="kpi-value" id="am_principal">$320,000</div></div>
+    <div class="kpi-card kpi-gold"><div class="kpi-label">Total Interest</div><div class="kpi-value" id="am_interest">$408,142</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total Paid</div><div class="kpi-value" id="am_total">$728,142</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th>Opening Balance</th>
+          <th>Monthly Payment</th>
+          <th>Interest Paid</th>
+          <th>Principal Paid</th>
+          <th>Closing Balance</th>
+        </tr>
+      </thead>
+      <tbody id="amort_tbody"></tbody>
+    </table>
+  </div>
+  <div class="pagination" id="amort_pagination"></div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     SCENARIOS
+══════════════════════════════════════════════ -->
+<section id="section-scenarios" class="section">
+  <div class="page-title">Scenario Analysis</div>
+  <div class="page-sub">Compare loan tenures and rate variations side by side.</div>
+
+  <div class="section-label" style="margin-bottom:0.75rem">Tenure Comparison — Same Interest Rate</div>
+  <div style="padding:0.5rem 0.75rem;background:var(--warn-hl);border-radius:var(--r-md);font-size:12px;color:var(--warn);margin-bottom:1.25rem;border:1px solid var(--warn)">
+    ⚠️ Assumption: same interest rate applied across all tenures — highly unlikely in practice. Real-world rates vary by tenure and lender.
+  </div>
+  <div class="scenario-grid" id="scenario_cards"></div>
+
+  <div class="chart-wrap" style="margin-bottom:1.5rem">
+    <div class="chart-title">EMI vs Total Interest — Tenure Comparison</div>
+    <canvas id="chart_scenario" height="120"></canvas>
+  </div>
+
+  <hr class="divider">
+  <div class="section-label" style="margin-bottom:0.75rem">Rate Sensitivity — Same Tenure (<span id="sc_tenure_label">30</span> yrs)</div>
+  <div class="scenario-grid" id="rate_scenario_cards"></div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">EMI Across Rate Scenarios</div>
+    <canvas id="chart_rate_scenario" height="100"></canvas>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     REFINANCE
+══════════════════════════════════════════════ -->
+<section id="section-refinance" class="section">
+  <div class="page-title">Refinance Analyser</div>
+  <div class="page-sub">Is refinancing worth it? Enter your new loan details to find out.</div>
+
+  <div class="grid-2" style="margin-bottom:1.5rem;align-items:start">
+    <!-- Inputs -->
+    <div class="card">
+      <div class="section-label">Refinance Parameters</div>
+      <div class="input-grid" style="grid-template-columns:1fr;gap:0.875rem">
+        <div class="input-group">
+          <label class="input-label">Outstanding Loan Balance ($)</label>
+          <div class="input-wrap"><span class="input-prefix">$</span>
+            <input class="inp has-prefix" type="number" id="rf_balance" value="299556" oninput="calcRefinance()">
+          </div>
+          <div class="input-hint">From amortization — Month 60 closing balance = $299,556</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">New Interest Rate</label>
+          <div class="input-wrap">
+            <input class="inp has-suffix" type="number" id="rf_new_rate" value="5.5" step="0.1" oninput="calcRefinance()">
+            <span class="input-suffix">%</span>
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">New Tenure (Years)</label>
+          <div class="input-wrap">
+            <input class="inp has-suffix" type="number" id="rf_new_tenure" value="25" oninput="calcRefinance()">
+            <span class="input-suffix">yrs</span>
+          </div>
+          <div class="input-hint">Note: refinancing resets the loan clock to a fresh term.</div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Closing / Processing Cost ($)</label>
+          <div class="input-wrap"><span class="input-prefix">$</span>
+            <input class="inp has-prefix" type="number" id="rf_cost" value="5000" oninput="calcRefinance()">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="input-label">Months Already Paid (on original loan)</label>
+          <div class="input-wrap">
+            <input class="inp" type="number" id="rf_months_paid" value="60" oninput="calcRefinance()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div style="display:flex;flex-direction:column;gap:1.25rem">
+      <div id="refi_verdict" class="status-card green">
+        <div class="status-title" id="refi_verdict_title">✅ Refinancing is Worth It</div>
+        <div class="status-body" id="refi_verdict_body">You break even in X months.</div>
+      </div>
+      <div class="card card-sm">
+        <div class="section-label">Old vs New Comparison</div>
+        <div class="compare-table">
+          <div class="row"><span class="label">Monthly EMI</span><span class="old" id="rf_old_emi">$2,022.62</span><span class="new" id="rf_new_emi">—</span></div>
+          <div class="row"><span class="label">Monthly Savings</span><span class="old">—</span><span class="new" id="rf_savings">—</span></div>
+          <div class="row"><span class="label">Total Interest (remaining)</span><span class="old" id="rf_old_int">—</span><span class="new" id="rf_new_int">—</span></div>
+          <div class="row"><span class="label">Net Interest Saved</span><span class="old">—</span><span class="new" id="rf_int_saved">—</span></div>
+          <div class="row"><span class="label">Break-Even Period</span><span class="old">—</span><span class="new" id="rf_breakeven">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">Remaining Balance: Original vs Refinanced</div>
+    <canvas id="chart_refi" height="120"></canvas>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// STATE & CHARTS
+// ══════════════════════════════════════════════════════════
+let amortData = [];
+let charts = {};
+const AMORT_PER_PAGE = 24;
+let amortPage = 0;
+
+// ── THEME TOGGLE ──────────────────────────────────────────
+(function(){
+  const btn = document.querySelector('[data-theme-toggle]');
+  const html = document.documentElement;
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  let dark = mq.matches;
+  html.setAttribute('data-theme', dark ? 'dark' : 'light');
+  updateThemeIcon();
+  btn.addEventListener('click', () => {
+    dark = !dark;
+    html.setAttribute('data-theme', dark ? 'dark' : 'light');
+    updateThemeIcon();
+    rebuildCharts();
+  });
+  function updateThemeIcon(){
+    btn.innerHTML = dark
+      ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  }
+})();
+
+// ── TAB SWITCHING ─────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-' + tab).classList.add('active');
+  if (tab === 'amortization') renderAmortPage(0);
+  if (tab === 'scenarios') renderScenarios();
+  if (tab === 'refinance') calcRefinance();
+}
+
+// ── HELPERS ───────────────────────────────────────────────
+const fmt = (n, d=2) => n == null || isNaN(n) ? '—' : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+const fmtN = (n, d=2) => n == null || isNaN(n) ? '—' : n.toFixed(d);
+const fmtPct = (n, d=2) => isNaN(n) ? '—' : n.toFixed(d) + '%';
+const getCS = () => getComputedStyle(document.documentElement);
+const cssVar = v => getCS().getPropertyValue(v).trim();
+
+function set(id, val){ const el = document.getElementById(id); if(el){ el.textContent = val; el.classList.remove('num-update'); void el.offsetWidth; el.classList.add('num-update'); } }
+
+// ── CORE MATH ─────────────────────────────────────────────
+function calcEMI(P, annualRate, years){
+  const r = annualRate / 100 / 12;
+  const n = years * 12;
+  if(r === 0) return P / n;
+  return P * r * Math.pow(1+r,n) / (Math.pow(1+r,n) - 1);
+}
+
+function buildAmort(P, annualRate, years){
+  const r = annualRate / 100 / 12;
+  const n = years * 12;
+  const emi = calcEMI(P, annualRate, years);
+  let bal = P, rows = [];
+  for(let m=1; m<=n; m++){
+    const interest = bal * r;
+    const principal = emi - interest;
+    const closing = Math.max(0, bal - principal);
+    rows.push({ month: m, open: bal, emi, interest, principal, closing });
+    bal = closing;
+  }
+  return rows;
+}
+
+// ── MAIN CALC ─────────────────────────────────────────────
+function calcAll(){
+  const income = +document.getElementById('d_income').value||0;
+  const debts  = +document.getElementById('d_debts').value||0;
+  const prop   = +document.getElementById('d_propval').value||0;
+  const down   = +document.getElementById('d_down').value||0;
+  const rate   = +document.getElementById('d_rate').value||0;
+  const tenure = +document.getElementById('d_tenure').value||0;
+
+  if(prop<=0||rate<=0||tenure<=0||down>=prop) return;
+
+  const loan  = prop - down;
+  const emi   = calcEMI(loan, rate, tenure);
+  const total = emi * tenure * 12;
+  const interest = total - loan;
+  const ltv = (loan/prop)*100;
+  const dti = ((emi+debts)/income)*100;
+  const intPct = (interest/total)*100;
+  const prinPct = (loan/total)*100;
+
+  // Build amortization
+  amortData = buildAmort(loan, rate, tenure);
+
+  // KPIs
+  set('kpi_emi', fmt(emi, 0));
+  set('kpi_interest', fmt(interest, 0));
+  set('kpi_interest_pct', fmtPct(intPct,1) + ' of total payment');
+  set('kpi_total', fmt(total, 0));
+  set('kpi_loan_amt', 'Loan: ' + fmt(loan,0));
+  set('kpi_ltv', fmtPct(ltv,1));
+  const ltvBar = document.getElementById('kpi_ltv_bar');
+  if(ltvBar){ ltvBar.style.width = Math.min(ltv,100)+'%'; ltvBar.style.background = ltv>90?'var(--error)':ltv>80?'var(--warn)':'var(--success)'; }
+  set('kpi_ltv', fmtPct(ltv,1));
+
+  // Affordability
+  const afford = document.getElementById('afford_card');
+  let aStatus, aBody, aClass;
+  if(dti <= 36){ aStatus='✅ Eligible'; aBody='Your DTI ratio is within the recommended limit of 36%.'; aClass='green'; }
+  else if(dti <= 43){ aStatus='⚠️ Borderline'; aBody='Your DTI is above 36%. Some lenders may still approve with good credit.'; aClass='warn'; }
+  else { aStatus='❌ Not Eligible'; aBody='Your DTI exceeds 43%. Consider reducing debts or increasing income.'; aClass='error'; }
+  if(afford){ afford.className='status-card '+aClass; }
+  set('afford_title', aStatus);
+  set('afford_body', aBody);
+  set('res_total_debt', fmt(emi+debts));
+  set('res_dti', fmtPct(dti));
+  set('res_loan', fmt(loan,0));
+  set('res_monthly_rate', fmtPct(rate/12, 3));
+  set('res_months', tenure*12);
+  set('res_ltv2', fmtPct(ltv,1));
+  set('res_dp_pct', fmtPct((down/prop)*100,1));
+  set('res_int_pct', fmtPct(intPct,2));
+
+  // Calculator tab
+  set('lc_propval', fmt(prop,0));
+  set('lc_down', fmt(down,0));
+  set('lc_loan', fmt(loan,0));
+  set('lc_rate', fmtPct(rate,2));
+  set('lc_mrate', fmtPct(rate/12,3));
+  set('lc_tenure', tenure + ' years');
+  set('lc_months', tenure*12);
+  set('lc_emi', fmt(emi,2));
+  set('lc_total', fmt(total,2));
+  set('lc_interest', fmt(interest,2));
+  set('lc_int_pct', fmtPct(intPct,2));
+  set('lc_prin_pct', fmtPct(prinPct,2));
+
+  // Year 1 from amort
+  const yr1 = amortData.slice(0,12);
+  const yr1Int = yr1.reduce((a,r)=>a+r.interest,0);
+  const yr1Prin = yr1.reduce((a,r)=>a+r.principal,0);
+  set('lc_yr1_int', fmt(yr1Int,2));
+  set('lc_yr1_prin', fmt(yr1Prin,2));
+  set('lc_yr1_bal', fmt(amortData[11]?.closing||0,2));
+
+  // Amort KPIs
+  set('am_emi', fmt(emi,2));
+  set('am_principal', fmt(loan,0));
+  set('am_interest', fmt(interest,0));
+  set('am_total', fmt(total,0));
+
+  rebuildCharts();
+}
+
+// ── CHARTS ────────────────────────────────────────────────
+function getChartColors(){
+  return {
+    primary: cssVar('--primary'),
+    warn: cssVar('--warn'),
+    success: cssVar('--success'),
+    gold: cssVar('--gold'),
+    text: cssVar('--text'),
+    muted: cssVar('--muted'),
+    border: cssVar('--border'),
+    surface: cssVar('--surface'),
+    surface2: cssVar('--surface-2'),
+  };
+}
+
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+function rebuildCharts(){
+  const loan    = (+document.getElementById('d_propval').value||0) - (+document.getElementById('d_down').value||0);
+  const rate    = +document.getElementById('d_rate').value||0;
+  const tenure  = +document.getElementById('d_tenure').value||0;
+  if(!amortData.length) return;
+
+  const total   = amortData[0].emi * tenure * 12;
+  const interest= total - loan;
+  const c = getChartColors();
+
+  const chartDefaults = {
+    responsive:true,
+    plugins:{ legend:{ labels:{ color: c.text, font:{ family:"'Satoshi',sans-serif", size:12 }, boxWidth:12, padding:16 } }, tooltip:{ backgroundColor: c.surface2, titleColor: c.text, bodyColor: c.muted, borderColor: c.border, borderWidth:1 } },
+    scales:{}
+  };
+
+  // 1. Donut
+  destroyChart('donut');
+  const donutCtx = document.getElementById('chart_donut');
+  if(donutCtx) charts['donut'] = new Chart(donutCtx, {
+    type:'doughnut',
+    data:{ labels:['Principal','Interest'], datasets:[{ data:[loan, interest], backgroundColor:[c.primary, c.warn], borderWidth:0, hoverOffset:6 }] },
+    options:{ ...chartDefaults, cutout:'68%', plugins:{ ...chartDefaults.plugins, legend:{ position:'bottom', labels:{ color:c.text, font:{family:"'Satoshi',sans-serif",size:12}, padding:16 } } } }
+  });
+
+  // 2. Balance line (yearly)
+  destroyChart('balance');
+  const yLabels = ['Start',...amortData.filter(r=>r.month%12===0).map(r=>'Yr '+(r.month/12))];
+  const yBalances = [loan, ...amortData.filter(r=>r.month%12===0).map(r=>r.closing)];
+  const balCtx = document.getElementById('chart_balance');
+  if(balCtx) charts['balance'] = new Chart(balCtx, {
+    type:'line',
+    data:{ labels: yLabels, datasets:[{ label:'Remaining Balance', data: yBalances, borderColor: c.primary, backgroundColor: c.primary+'22', fill:true, tension:0.4, pointRadius:2, pointHoverRadius:5 }] },
+    options:{ ...chartDefaults, scales:{ x:{ ticks:{ color:c.muted, font:{size:11} }, grid:{ color: c.border+'55' } }, y:{ ticks:{ color:c.muted, font:{size:11}, callback: v=> '$'+Math.round(v/1000)+'K' }, grid:{ color: c.border+'55' } } } }
+  });
+
+  // 3. Cumulative stacked bar (yearly)
+  destroyChart('cumulative');
+  const cumCtx = document.getElementById('chart_cumulative');
+  if(cumCtx){
+    const yrRows = amortData.filter(r=>r.month%12===0);
+    let cumP=0,cumI=0;
+    const cumPrins=[], cumInts=[];
+    amortData.forEach(r=>{ cumP+=r.principal; cumI+=r.interest; if(r.month%12===0){ cumPrins.push(cumP); cumInts.push(cumI); } });
+    charts['cumulative'] = new Chart(cumCtx, {
+      type:'bar',
+      data:{ labels: yrRows.map(r=>'Yr '+(r.month/12)), datasets:[
+        { label:'Cumulative Principal', data: cumPrins, backgroundColor: c.primary+'cc', stack:'a' },
+        { label:'Cumulative Interest',  data: cumInts,  backgroundColor: c.warn+'cc', stack:'a' }
+      ]},
+      options:{ ...chartDefaults, scales:{ x:{ stacked:true, ticks:{ color:c.muted,font:{size:10} }, grid:{color:c.border+'33'} }, y:{ stacked:true, ticks:{ color:c.muted,font:{size:11},callback:v=>'$'+Math.round(v/1000)+'K' }, grid:{color:c.border+'55'} } } }
+    });
+  }
+}
+
+// ── AMORTIZATION TABLE ────────────────────────────────────
+function renderAmortPage(page){
+  if(!amortData.length) calcAll();
+  amortPage = page;
+  const start = page * AMORT_PER_PAGE;
+  const rows = amortData.slice(start, start + AMORT_PER_PAGE);
+  const tbody = document.getElementById('amort_tbody');
+  if(!tbody) return;
+  tbody.innerHTML = rows.map(r => {
+    const isYearEnd = r.month % 12 === 0;
+    return `<tr class="${isYearEnd?'year-end':''}">
+      <td>${r.month}${isYearEnd?'<br><span style="font-size:10px;color:var(--primary)">Yr '+(r.month/12)+'</span>':''}</td>
+      <td>${fmt(r.open)}</td>
+      <td>${fmt(r.emi)}</td>
+      <td class="interest-col">${fmt(r.interest)}</td>
+      <td class="principal-col">${fmt(r.principal)}</td>
+      <td class="balance-col">${fmt(r.closing)}</td>
+    </tr>`;
+  }).join('');
+
+  // Pagination
+  const totalPages = Math.ceil(amortData.length / AMORT_PER_PAGE);
+  const pag = document.getElementById('amort_pagination');
+  if(!pag) return;
+  let html = `<span class="page-info">Showing ${start+1}–${Math.min(start+AMORT_PER_PAGE,amortData.length)} of ${amortData.length} months</span>`;
+  html += `<button class="page-btn" onclick="renderAmortPage(${page-1})" ${page===0?'disabled':''}>‹ Prev</button>`;
+  for(let i=0;i<totalPages;i++){
+    if(i===0||i===totalPages-1||Math.abs(i-page)<=1) html+=`<button class="page-btn ${i===page?'active':''}" onclick="renderAmortPage(${i})">${i+1}</button>`;
+    else if(Math.abs(i-page)===2) html+=`<span class="page-info">…</span>`;
+  }
+  html += `<button class="page-btn" onclick="renderAmortPage(${page+1})" ${page===totalPages-1?'disabled':''}>Next ›</button>`;
+  pag.innerHTML = html;
+}
+
+// ── SCENARIOS ─────────────────────────────────────────────
+function renderScenarios(){
+  const loan   = (+document.getElementById('d_propval').value||0) - (+document.getElementById('d_down').value||0);
+  const rate   = +document.getElementById('d_rate').value||0;
+  const tenure = +document.getElementById('d_tenure').value||0;
+  const c = getChartColors();
+
+  // Tenure comparison
+  const tenures = [10, 15, 20, 25, 30];
+  const scEl = document.getElementById('scenario_cards');
+  const scTenureLabel = document.getElementById('sc_tenure_label');
+  if(scTenureLabel) scTenureLabel.textContent = tenure;
+
+  // Pick 3 representative tenures centred around selected
+  const t3 = [15,20,30];
+  if(scEl) scEl.innerHTML = t3.map(t=>{
+    const emi = calcEMI(loan,rate,t);
+    const tot = emi*t*12;
+    const int = tot-loan;
+    const isActive = t===tenure;
+    return `<div class="scenario-card ${isActive?'highlight':''}">
+      ${isActive?'<div class="scenario-badge"><span class="badge badge-teal">Your Plan</span></div>':''}
+      <div class="scenario-tenure">${t} Years</div>
+      <div class="scenario-emi">Monthly EMI <span>${fmt(emi,0)}</span></div>
+      <div class="result-row"><span class="result-key">Total Interest</span><span class="result-val" style="color:var(--warn)">${fmt(int,0)}</span></div>
+      <div class="result-row"><span class="result-key">Total Payment</span><span class="result-val">${fmt(tot,0)}</span></div>
+      <div class="result-row"><span class="result-key">Interest %</span><span class="result-val">${fmtPct((int/tot)*100,1)}</span></div>
+    </div>`;
+  }).join('');
+
+  // Scenario bar chart
+  destroyChart('scenario');
+  const scCtx = document.getElementById('chart_scenario');
+  if(scCtx) charts['scenario'] = new Chart(scCtx,{
+    type:'bar',
+    data:{ labels: t3.map(t=>t+' Yrs'),
+      datasets:[
+        { label:'Monthly EMI', data: t3.map(t=>+calcEMI(loan,rate,t).toFixed(2)), backgroundColor: c.primary+'cc', yAxisID:'y' },
+        { label:'Total Interest', data: t3.map(t=>{ const e=calcEMI(loan,rate,t); return +(e*t*12-loan).toFixed(0); }), backgroundColor: c.warn+'cc', yAxisID:'y2' }
+      ]},
+    options:{ responsive:true, plugins:{ legend:{ labels:{color:c.text,font:{family:"'Satoshi',sans-serif",size:12},padding:16} }, tooltip:{ backgroundColor:c.surface2,titleColor:c.text,bodyColor:c.muted,borderColor:c.border,borderWidth:1 } },
+      scales:{ x:{ticks:{color:c.muted},grid:{color:c.border+'33'}}, y:{ticks:{color:c.muted,callback:v=>'$'+v.toFixed(0)},grid:{color:c.border+'55'},position:'left'}, y2:{ticks:{color:c.muted,callback:v=>'$'+Math.round(v/1000)+'K'},grid:{display:false},position:'right'} } }
+  });
+
+  // Rate sensitivity
+  const rates = [rate-1.5, rate-0.75, rate, rate+0.75, rate+1.5].filter(r=>r>0);
+  const rsEl = document.getElementById('rate_scenario_cards');
+  if(rsEl){
+    const show3 = [rates[0],rate,rates[rates.length-1]];
+    rsEl.innerHTML = show3.map(r=>{
+      const emi=calcEMI(loan,r,tenure);
+      const tot=emi*tenure*12;
+      const int=tot-loan;
+      const isBase=r===rate;
+      return `<div class="scenario-card ${isBase?'highlight':''}">
+        ${isBase?'<div class="scenario-badge"><span class="badge badge-teal">Base</span></div>':''}
+        <div class="scenario-tenure">${r.toFixed(2)}%</div>
+        <div class="scenario-emi">Monthly EMI <span>${fmt(emi,0)}</span></div>
+        <div class="result-row"><span class="result-key">Total Interest</span><span class="result-val" style="color:var(--warn)">${fmt(int,0)}</span></div>
+        <div class="result-row"><span class="result-key">vs Base</span><span class="result-val" style="color:${isBase?'var(--muted)':r>rate?'var(--error)':'var(--success)'}">${isBase?'—':(r>rate?'+':'')+fmt(emi-calcEMI(loan,rate,tenure),0)+'/mo'}</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  // Rate bar chart
+  destroyChart('rate_scenario');
+  const rsCtx = document.getElementById('chart_rate_scenario');
+  if(rsCtx) charts['rate_scenario'] = new Chart(rsCtx,{
+    type:'bar',
+    data:{ labels: rates.map(r=>r.toFixed(2)+'%'), datasets:[{ label:'Monthly EMI', data: rates.map(r=>+calcEMI(loan,r,tenure).toFixed(2)), backgroundColor: rates.map(r=>r<rate?c.success+'cc':r===rate?c.primary+'cc':c.warn+'cc') }] },
+    options:{ responsive:true, indexAxis:'y', plugins:{ legend:{display:false}, tooltip:{backgroundColor:c.surface2,titleColor:c.text,bodyColor:c.muted,borderColor:c.border,borderWidth:1} },
+      scales:{ x:{ticks:{color:c.muted,callback:v=>'$'+v.toFixed(0)},grid:{color:c.border+'55'}}, y:{ticks:{color:c.muted},grid:{color:c.border+'33'}} } }
+  });
+}
+
+// ── REFINANCE ─────────────────────────────────────────────
+function calcRefinance(){
+  const oldEMI  = calcEMI(
+    (+document.getElementById('d_propval').value||0) - (+document.getElementById('d_down').value||0),
+    +document.getElementById('d_rate').value||0,
+    +document.getElementById('d_tenure').value||0
+  );
+  const balance     = +document.getElementById('rf_balance').value||0;
+  const newRate     = +document.getElementById('rf_new_rate').value||0;
+  const newTenure   = +document.getElementById('rf_new_tenure').value||0;
+  const cost        = +document.getElementById('rf_cost').value||0;
+  const monthsPaid  = +document.getElementById('rf_months_paid').value||0;
+  const origTenure  = +document.getElementById('d_tenure').value||0;
+
+  if(!balance||!newRate||!newTenure) return;
+
+  const newEMI         = calcEMI(balance, newRate, newTenure);
+  const monthlySavings = oldEMI - newEMI;
+  const remainMonths   = origTenure*12 - monthsPaid;
+
+  const oldRemainingInt = oldEMI * remainMonths - balance;
+  const newTotalInt     = newEMI * newTenure * 12 - balance;
+  const intSaved        = oldRemainingInt - newTotalInt - cost;
+  const breakEven       = monthlySavings > 0 ? Math.ceil(cost / monthlySavings) : Infinity;
+
+  set('rf_old_emi', fmt(oldEMI,2));
+  set('rf_new_emi', fmt(newEMI,2));
+  set('rf_savings', monthlySavings>0 ? fmt(monthlySavings,2)+'/mo' : '—');
+  set('rf_old_int', fmt(oldRemainingInt,0));
+  set('rf_new_int', fmt(newTotalInt,0));
+  set('rf_int_saved', intSaved>0?fmt(intSaved,0):'—');
+  set('rf_breakeven', isFinite(breakEven)?breakEven+' months':'Never');
+
+  // Verdict
+  const vCard = document.getElementById('refi_verdict');
+  let vClass, vTitle, vBody;
+  if(monthlySavings<=0){ vClass='error'; vTitle='❌ Not Worth It'; vBody='The new EMI is higher or equal to your current EMI. No savings achieved.'; }
+  else if(!isFinite(breakEven)){ vClass='error'; vTitle='❌ Not Worth It'; vBody='Closing costs cannot be recovered from monthly savings.'; }
+  else if(breakEven>remainMonths){ vClass='warn'; vTitle='⚠️ Marginal'; vBody=`Break-even is ${breakEven} months, but only ${remainMonths} months remain. You may not recover closing costs.`; }
+  else { vClass='green'; vTitle='✅ Refinancing is Worth It'; vBody=`You save ${fmt(monthlySavings,2)}/month and break even in ${breakEven} months. Net interest saved: ${fmt(Math.max(0,intSaved),0)}.`; }
+  if(vCard){ vCard.className='status-card '+vClass; }
+  set('refi_verdict_title', vTitle);
+  set('refi_verdict_body', vBody);
+
+  // Refi chart
+  const c = getChartColors();
+  destroyChart('refi');
+  const rfCtx = document.getElementById('chart_refi');
+  if(rfCtx){
+    const origRows  = buildAmort(balance, +document.getElementById('d_rate').value, remainMonths/12).filter((_,i)=>i%3===0||i===0);
+    const refiRows  = buildAmort(balance, newRate, newTenure).filter((_,i)=>i%3===0||i===0);
+    const maxLen = Math.max(origRows.length, refiRows.length);
+    const labels = Array.from({length:maxLen},(_,i)=>'Mo '+(i*3+1));
+    charts['refi'] = new Chart(rfCtx,{
+      type:'line',
+      data:{ labels,
+        datasets:[
+          { label:'Original Loan', data: origRows.map(r=>r.closing), borderColor:c.warn, backgroundColor:c.warn+'22', fill:true, tension:0.4, pointRadius:0 },
+          { label:'Refinanced',    data: refiRows.map(r=>r.closing),  borderColor:c.primary, backgroundColor:c.primary+'22', fill:true, tension:0.4, pointRadius:0 }
+        ]},
+      options:{ responsive:true, plugins:{ legend:{labels:{color:c.text,font:{family:"'Satoshi',sans-serif",size:12},padding:16}}, tooltip:{backgroundColor:c.surface2,titleColor:c.text,bodyColor:c.muted,borderColor:c.border,borderWidth:1} },
+        scales:{ x:{ticks:{color:c.muted,font:{size:10}},grid:{color:c.border+'33'}}, y:{ticks:{color:c.muted,callback:v=>'$'+Math.round(v/1000)+'K'},grid:{color:c.border+'55'}} } }
+    });
+  }
+}
+
+// ── EXPORT CSV ────────────────────────────────────────────
+function exportCSV(){
+  if(!amortData.length){ alert('Please calculate first.'); return; }
+  const headers = ['Month','Opening Balance','Monthly Payment','Interest Paid','Principal Paid','Closing Balance'];
+  const rows = amortData.map(r=>[r.month,r.open.toFixed(2),r.emi.toFixed(2),r.interest.toFixed(2),r.principal.toFixed(2),r.closing.toFixed(2)]);
+  const csv = [headers,...rows].map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mortgage-amortization.csv';
+  a.click();
+}
+
+
+
+// ── LOAN PROGRESS TRACKER ────────────────────────────────
+function calcLoanProgress(){
+  const origLoan   = (+document.getElementById('d_propval').value||0) - (+document.getElementById('d_down').value||0);
+  const currRate   = +document.getElementById('d_rate').value||0;
+  const balance    = +document.getElementById('lpt_actual_balance').value||0;
+  const remYrs     = +document.getElementById('lpt_rem_years').value||0;
+  const remMos     = +document.getElementById('lpt_rem_months').value||0;
+
+  if(!balance||!origLoan) return;
+
+  const remMonths  = remYrs * 12 + remMos;
+  const equity     = Math.max(0, origLoan - balance);
+  const pct        = origLoan > 0 ? (equity / origLoan) * 100 : 0;
+
+  // Estimate remaining interest: use current rate on remaining balance/tenure
+  const r = currRate / 100 / 12;
+  let intRemaining = 0;
+  if(remMonths > 0 && r > 0){
+    const emi = balance * r * Math.pow(1+r,remMonths) / (Math.pow(1+r,remMonths)-1);
+    intRemaining = emi * remMonths - balance;
+  }
+
+  // Update UI
+  set('lpt_balance_display', fmt(balance,0));
+  set('lpt_equity',          fmt(equity,0));
+  set('lpt_int_remain',      fmt(Math.max(0,intRemaining),0));
+  set('lpt_rem_months_display', remMonths+' mo');
+  set('lpt_pct_label',       pct.toFixed(1)+'%');
+  set('lpt_equity_label',    fmt(equity,0)+' equity');
+  set('lpt_balance_label',   fmt(balance,0)+' remaining');
+
+  const bar = document.getElementById('lpt_prog_fill');
+  if(bar){
+    bar.style.width = Math.min(pct,100)+'%';
+    bar.style.background = pct < 30 ? 'var(--warn)' : pct < 70 ? 'var(--primary)' : 'var(--success)';
+  }
+
+  // Auto-fill refinance quick-check with real balance
+  ['drf_balance','rf_balance'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = balance.toFixed(0);
+  });
+  ['drf_months_paid','rf_months_paid'].forEach(id=>{
+    const el = document.getElementById(id);
+    const totalMonths = (+document.getElementById('d_tenure').value||0)*12;
+    if(el) el.value = Math.max(0, totalMonths - remMonths);
+  });
+
+  const note = document.getElementById('lpt_autofill_note');
+  if(note) note.textContent = 'Your outstanding balance ('+fmt(balance,0)+') has been auto-filled into the Refinance Quick-Check below.';
+
+  calcDashRefi();
+}
+
+// ── DASHBOARD REFINANCE QUICK-CHECK ──────────────────────
+function calcDashRefi(){
+  const oldEMI = calcEMI(
+    (+document.getElementById('d_propval').value||0) - (+document.getElementById('d_down').value||0),
+    +document.getElementById('d_rate').value||0,
+    +document.getElementById('d_tenure').value||0
+  );
+  const balance    = +document.getElementById('drf_balance').value||0;
+  const newRate    = +document.getElementById('drf_new_rate').value||0;
+  const newTenure  = +document.getElementById('drf_new_tenure').value||0;
+  const cost       = +document.getElementById('drf_cost').value||0;
+  const monthsPaid = +document.getElementById('drf_months_paid').value||0;
+  const origTenure = +document.getElementById('d_tenure').value||0;
+
+  if(!balance||!newRate||!newTenure) return;
+
+  const newEMI         = calcEMI(balance, newRate, newTenure);
+  const monthlySavings = oldEMI - newEMI;
+  const remainMonths   = origTenure*12 - monthsPaid;
+  const oldRemainingInt= oldEMI * remainMonths - balance;
+  const newTotalInt    = newEMI * newTenure * 12 - balance;
+  const intSaved       = oldRemainingInt - newTotalInt - cost;
+  const breakEven      = monthlySavings > 0 ? Math.ceil(cost / monthlySavings) : Infinity;
+
+  set('drf_old_emi', fmt(oldEMI,0));
+  set('drf_new_emi', fmt(newEMI,0));
+  set('drf_savings', monthlySavings>0 ? fmt(monthlySavings,0)+'/mo' : '—');
+  set('drf_breakeven', isFinite(breakEven) ? breakEven+' mo' : '∞');
+
+  const vCard = document.getElementById('drf_verdict');
+  let vClass, vTitle, vBody;
+  if(monthlySavings<=0){
+    vClass='error'; vTitle='❌ Not Worth It';
+    vBody='The new EMI ($'+fmt(newEMI,0).replace('$','')+') is higher than your current EMI ($'+fmt(oldEMI,0).replace('$','')+').';
+  } else if(!isFinite(breakEven)){
+    vClass='error'; vTitle='❌ Not Worth It';
+    vBody='Closing costs cannot be recovered from monthly savings.';
+  } else if(breakEven > remainMonths){
+    vClass='warn'; vTitle='⚠️ Borderline';
+    vBody='Break-even is '+breakEven+' months but only '+remainMonths+' months remain on your loan.';
+  } else {
+    vClass='green'; vTitle='✅ Worth It — Refinance!';
+    vBody='Save '+fmt(monthlySavings,0)+'/month. Break-even in '+breakEven+' months. Net interest saved: '+fmt(Math.max(0,intSaved),0)+'.';
+  }
+  if(vCard) vCard.className='status-card '+vClass;
+  set('drf_verdict_title', vTitle);
+  set('drf_verdict_body', vBody);
+
+  // Sync values to the full Refinance tab too
+  const syncFields = [
+    ['rf_balance','drf_balance'],['rf_new_rate','drf_new_rate'],
+    ['rf_new_tenure','drf_new_tenure'],['rf_cost','drf_cost'],
+    ['rf_months_paid','drf_months_paid']
+  ];
+  syncFields.forEach(([target,source])=>{
+    const el = document.getElementById(target);
+    const src = document.getElementById(source);
+    if(el&&src) el.value = src.value;
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────
+calcAll();
+calcLoanProgress();
+calcDashRefi();
+</script>
+</body>
+</html>
